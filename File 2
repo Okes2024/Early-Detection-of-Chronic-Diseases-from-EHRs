@@ -1,0 +1,85 @@
+import pandas as pd
+import numpy as np
+from sklearn.model_selection import train_test_split
+from sklearn.impute import SimpleImputer
+from sklearn.preprocessing import StandardScaler
+from sklearn.ensemble import RandomForestClassifier
+from xgboost import XGBClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import classification_report, confusion_matrix, roc_auc_score, roc_curve
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+# Step 1: Generate synthetic EHR data
+def generate_synthetic_ehr_data(n_samples=1000, random_state=42):
+    np.random.seed(random_state)
+    data = {
+        'age': np.random.randint(18, 90, n_samples),
+        'gender': np.random.choice(['Male', 'Female'], n_samples),
+        'bmi': np.round(np.random.normal(27, 5, n_samples), 2),
+        'blood_pressure': np.random.randint(90, 180, n_samples),
+        'cholesterol': np.random.randint(100, 300, n_samples),
+        'glucose': np.random.randint(70, 200, n_samples),
+        'smoking': np.random.choice([0, 1], n_samples),
+        'alcohol_intake': np.random.choice([0, 1], n_samples),
+        'physical_activity': np.random.randint(0, 5, n_samples),
+        'family_history': np.random.choice([0, 1], n_samples),
+        # Synthetic chronic disease label (e.g., diabetes or hypertension)
+        'chronic_disease': np.random.choice([0, 1], n_samples, p=[0.7, 0.3])
+    }
+    return pd.DataFrame(data)
+
+df = generate_synthetic_ehr_data()
+
+# Step 2: Preprocessing
+df['gender'] = df['gender'].map({'Male': 0, 'Female': 1})  # Encode gender
+
+X = df.drop('chronic_disease', axis=1)
+y = df['chronic_disease']
+
+# Handle missing values if any
+imputer = SimpleImputer(strategy='mean')
+X = pd.DataFrame(imputer.fit_transform(X), columns=X.columns)
+
+# Normalize
+scaler = StandardScaler()
+X_scaled = pd.DataFrame(scaler.fit_transform(X), columns=X.columns)
+
+# Step 3: Split data
+X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.2, random_state=42)
+
+# Step 4: Train models
+models = {
+    'Logistic Regression': LogisticRegression(),
+    'Random Forest': RandomForestClassifier(n_estimators=100, random_state=42),
+    'XGBoost': XGBClassifier(use_label_encoder=False, eval_metric='logloss', random_state=42)
+}
+
+results = {}
+
+for name, model in models.items():
+    model.fit(X_train, y_train)
+    y_pred = model.predict(X_test)
+    y_proba = model.predict_proba(X_test)[:, 1]
+    results[name] = {
+        'model': model,
+        'classification_report': classification_report(y_test, y_pred, output_dict=True),
+        'roc_auc': roc_auc_score(y_test, y_proba)
+    }
+    print(f"\n{name} Classification Report:\n")
+    print(classification_report(y_test, y_pred))
+
+# Step 5: ROC Curve
+plt.figure(figsize=(10, 6))
+for name, res in results.items():
+    fpr, tpr, _ = roc_curve(y_test, res['model'].predict_proba(X_test)[:, 1])
+    plt.plot(fpr, tpr, label=f"{name} (AUC = {res['roc_auc']:.2f})")
+
+plt.plot([0, 1], [0, 1], 'k--')
+plt.xlabel("False Positive Rate")
+plt.ylabel("True Positive Rate")
+plt.title("ROC Curve for Chronic Disease Detection")
+plt.legend()
+plt.grid(True)
+plt.tight_layout()
+plt.show()
