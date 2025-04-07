@@ -1,0 +1,76 @@
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import LSTM, Dense, Dropout
+from tensorflow.keras.utils import to_categorical
+
+# Step 1: Generate synthetic time-series EHR data
+def generate_temporal_ehr_data(n_patients=500, n_timesteps=10, random_state=42):
+    np.random.seed(random_state)
+    X = []
+    y = []
+    
+    for _ in range(n_patients):
+        # Each patient has `n_timesteps` visits
+        patient_visits = []
+        baseline = np.random.normal(loc=0, scale=1)
+        chronic_disease = np.random.choice([0, 1], p=[0.7, 0.3])  # 30% have disease
+        
+        for t in range(n_timesteps):
+            age = np.random.randint(30, 80)
+            bmi = np.random.normal(28 + 0.5 * chronic_disease, 3)
+            bp = np.random.normal(120 + 10 * chronic_disease, 10)
+            glucose = np.random.normal(100 + 30 * chronic_disease, 15)
+            cholesterol = np.random.normal(180 + 40 * chronic_disease, 20)
+            activity = np.random.randint(0, 5)
+            visit = [age, bmi, bp, glucose, cholesterol, activity]
+            patient_visits.append(visit)
+        
+        X.append(patient_visits)
+        y.append(chronic_disease)
+    
+    return np.array(X), np.array(y)
+
+X, y = generate_temporal_ehr_data()
+
+# Step 2: Normalize features
+nsamples, nsteps, nfeatures = X.shape
+X_reshaped = X.reshape(-1, nfeatures)
+
+scaler = StandardScaler()
+X_scaled = scaler.fit_transform(X_reshaped).reshape(nsamples, nsteps, nfeatures)
+
+# Step 3: Train/Test Split
+X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.2, random_state=42)
+
+# Step 4: Build LSTM Model
+model = Sequential([
+    LSTM(64, input_shape=(X_train.shape[1], X_train.shape[2]), return_sequences=False),
+    Dropout(0.3),
+    Dense(32, activation='relu'),
+    Dropout(0.2),
+    Dense(1, activation='sigmoid')  # Binary classification
+])
+
+model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+
+# Step 5: Train the Model
+history = model.fit(X_train, y_train, epochs=20, batch_size=32, validation_split=0.1, verbose=1)
+
+# Step 6: Evaluate
+loss, accuracy = model.evaluate(X_test, y_test)
+print(f"Test Accuracy: {accuracy:.2f}")
+
+# Plot Accuracy
+plt.plot(history.history['accuracy'], label='Train Acc')
+plt.plot(history.history['val_accuracy'], label='Val Acc')
+plt.title("Model Accuracy Over Epochs")
+plt.xlabel("Epoch")
+plt.ylabel("Accuracy")
+plt.legend()
+plt.grid(True)
+plt.tight_layout()
+plt.show()
