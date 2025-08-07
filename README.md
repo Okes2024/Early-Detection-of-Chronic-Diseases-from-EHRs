@@ -72,7 +72,5 @@ This will train an LSTM on the data and output accuracy metrics and plots.
 
     📊 Integration with Streamlit dashboard
 
-👨‍💻 Author
-
-Developed by Okes Imoni
+👨‍💻 Author: Okes Imoni
 Contact: jennyimoni@gmail.com 
