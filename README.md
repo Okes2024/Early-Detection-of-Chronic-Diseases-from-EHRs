@@ -74,5 +74,5 @@ This will train an LSTM on the data and output accuracy metrics and plots.
 
 👨‍💻 Author
 
-Developed by [Your Name]
-Contact: [you@example.com]
+Developed by Okes Imoni
+Contact: jennyimoni@gmail.com 
